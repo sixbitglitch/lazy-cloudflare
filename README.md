@@ -1,5 +1,7 @@
 # Cloudflare Tunnels — Server Setup Tools
 
+These are a bit janky, I forget commandline stuff alot, and sick of breaking stuff all the time!
+
 A set of tools for setting up and managing **Cloudflare Tunnels** on a server using the **`cloudflared`** CLI. All scripts are **config-driven**: you maintain a single `config.yml` (see `config.example.yml`) and use it for setup, start, stop, and remove.
 
 ## Prerequisites
@@ -63,8 +65,9 @@ tunnels:
 | **start_cloudflaretunnel.sh** | `./start_cloudflaretunnel.sh config.yml` | Starts all `cloudflared-<name>.service` units listed in the config. |
 | **stop_cloudflare_tunnel.sh** | `./stop_cloudflare_tunnel.sh config.yml` | Stops all tunnel services from the config. |
 | **remove_cloudflare_tunnel.sh** | `./remove_cloudflare_tunnel.sh config.yml` | Stops and disables each tunnel service, deletes each tunnel via CLI, removes per-tunnel config and credentials. DNS CNAMEs are left in Cloudflare (remove in dashboard if desired). |
+| **clean_cloudflare_tunnel.sh** | `./clean_cloudflare_tunnel.sh [USER]` | **No config.** Stops and disables all cloudflared systemd services, kills any cloudflared processes, deletes all tunnels for the given user, removes tunnel config and credential files. Keeps `cert.pem`. Optional USER when run with sudo (e.g. after setup run as that user). |
 
-All scripts **read the config** to get tunnel names (and for setup: hostname and service). Use the same `config.yml` for setup, start, stop, and remove.
+All setup/start/stop/remove scripts **read the config** to get tunnel names (and for setup: hostname and service). Use the same `config.yml` for setup, start, stop, and remove.
 
 ## Directory layout
 
@@ -75,7 +78,8 @@ cloudflare-tools/
 ├── setup_cloudflare_tunnel.sh
 ├── start_cloudflaretunnel.sh
 ├── stop_cloudflare_tunnel.sh
-└── remove_cloudflare_tunnel.sh
+├── remove_cloudflare_tunnel.sh
+└── clean_cloudflare_tunnel.sh   # no config: wipes all tunnels and processes
 ```
 
 - **config.example.yml** — Copy to `config.yml`, set your tunnel names, hostnames, and local service URLs. Used by all four scripts.
