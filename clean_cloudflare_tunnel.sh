@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Clean all Cloudflare tunnels and processes on the host.
+# Clean only THIS HOST: stop services, kill processes, remove local config/credentials. Does NOT delete any tunnels from your Cloudflare account.
 # - Kills any running cloudflared processes
-# - Stops and disables all cloudflared systemd services (cloudflared.service, cloudflared-*.service)
-# - Deletes all tunnels for the current (or specified) user
-# - Removes tunnel config and credential files from ~/.cloudflared
+# - Stops and disables all cloudflared systemd services on this machine
+# - Removes tunnel config and credential files from ~/.cloudflared (keeps cert.pem)
+# To delete tunnels from the account, use remove_cloudflare_tunnel.sh config.yml (only removes tunnels listed in that config).
 # Usage: ./clean_cloudflare_tunnel.sh [USER]
-#   USER  optional; run tunnel delete as this user (default: current user). Use when cleaning after setup run with sudo.
+#   USER  optional; use this user's ~/.cloudflared when run as root (e.g. sudo ./clean_cloudflare_tunnel.sh deploy).
 
 set -e
 
@@ -15,7 +15,7 @@ if [ -n "$REAL_USER" ] && [ "$REAL_USER" != "$USER" ]; then
   CLOUDFLARED_DIR="$(eval echo "~$REAL_USER")/.cloudflared"
 fi
 
-echo "== Cleaning all Cloudflare tunnels and processes =="
+echo "== Cleaning this host only (services, processes, local config). Not touching account tunnels. =="
 
 # 1) Stop and disable all cloudflared systemd services, then remove unit files
 echo "Stopping systemd services..."
@@ -49,30 +49,7 @@ pkill -9 -x cloudflared 2>/dev/null || true
 killall -9 cloudflared 2>/dev/null || true
 echo "  done"
 
-# 3) Delete all tunnels (must run as user that owns cert.pem)
-if command -v cloudflared &>/dev/null && [ -d "$CLOUDFLARED_DIR" ]; then
-  echo "Deleting tunnels..."
-  TUNNEL_LIST=""
-  if [ "$(id -u)" -eq 0 ] && [ -n "$REAL_USER" ]; then
-    TUNNEL_LIST=$(sudo -u "$REAL_USER" cloudflared tunnel list 2>/dev/null) || true
-  else
-    TUNNEL_LIST=$(cloudflared tunnel list 2>/dev/null) || true
-  fi
-  if [ -n "$TUNNEL_LIST" ]; then
-    echo "$TUNNEL_LIST" | tail -n +2 | while read -r line; do
-      # Format: UUID NAME CREATED
-      name=$(echo "$line" | awk '{print $2}')
-      [ -z "$name" ] && continue
-      if [ "$(id -u)" -eq 0 ] && [ -n "$REAL_USER" ]; then
-        sudo -u "$REAL_USER" cloudflared tunnel delete -f "$name" 2>/dev/null && echo "  deleted tunnel: $name" || true
-      else
-        cloudflared tunnel delete -f "$name" 2>/dev/null && echo "  deleted tunnel: $name" || true
-      fi
-    done
-  fi
-fi
-
-# 4) Remove tunnel config and credential files (keep cert.pem so login persists)
+# 3) Remove tunnel config and credential files (keep cert.pem so login persists). Does NOT delete tunnels from Cloudflare account.
 echo "Removing tunnel config and credentials from $CLOUDFLARED_DIR..."
 if [ -d "$CLOUDFLARED_DIR" ]; then
   for f in "$CLOUDFLARED_DIR"/config-*.yml "$CLOUDFLARED_DIR"/*.json; do

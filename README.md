@@ -65,7 +65,7 @@ tunnels:
 | **start_cloudflaretunnel.sh** | `./start_cloudflaretunnel.sh config.yml` | Starts all `cloudflared-<name>.service` units listed in the config. |
 | **stop_cloudflare_tunnel.sh** | `./stop_cloudflare_tunnel.sh config.yml` | Stops all tunnel services from the config. |
 | **remove_cloudflare_tunnel.sh** | `./remove_cloudflare_tunnel.sh config.yml` | Stops and disables each tunnel service, deletes each tunnel via CLI, removes per-tunnel config and credentials. DNS CNAMEs are left in Cloudflare (remove in dashboard if desired). |
-| **clean_cloudflare_tunnel.sh** | `./clean_cloudflare_tunnel.sh [USER]` | **No config.** Stops and disables all cloudflared systemd services, kills any cloudflared processes, deletes all tunnels for the given user, removes tunnel config and credential files. Keeps `cert.pem`. Optional USER when run with sudo (e.g. after setup run as that user). |
+| **clean_cloudflare_tunnel.sh** | `./clean_cloudflare_tunnel.sh [USER]` | **No config.** This host only: stops/disables cloudflared services, kills cloudflared processes, removes local config and credential files. Does **not** delete any tunnels from your Cloudflare account. To delete tunnels use remove with config. |
 
 All setup/start/stop/remove scripts **read the config** to get tunnel names (and for setup: hostname and service). Use the same `config.yml` for setup, start, stop, and remove.
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Remove all Cloudflare tunnels defined in config: stop and disable services, delete tunnels, remove config and credentials.
+# Remove ONLY the tunnels defined in config.yml (tunnels set up on THIS host). Does NOT touch any other tunnels on your Cloudflare account.
+# For each tunnel in config: stop/disable service, delete that tunnel in Cloudflare, remove local config and credentials.
 # Usage: ./remove_cloudflare_tunnel.sh config.yml
 
 set -e
