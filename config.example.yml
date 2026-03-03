@@ -1,13 +1,19 @@
-# Example Cloudflare Tunnel config.
-# Copy to ~/.cloudflared/config.yml or /etc/cloudflared/config.yml
-# and set tunnel to your tunnel UUID (from: cloudflared tunnel list).
-
-# tunnel: <TUNNEL_UUID>
-# credentials-file: /path/to/.cloudflared/<TUNNEL_UUID>.json
-
-# ingress:
-#   - hostname: app.example.com
-#     service: http://localhost:3000
-#   - hostname: api.example.com
+# Cloudflare Tunnels config.
+# Use with: setup_cloudflare_tunnel.sh config.yml
+# Each tunnel gets its own UUID, config file, and systemd service (cloudflared-<name>.service).
+#
+# tunnels:
+#   - name: my-app          # tunnel name (used for CLI and service name)
+#     hostname: app.example.com   # DNS hostname in your Cloudflare zone
+#     service: http://localhost:3000   # local service URL
+#   - name: my-api
+#     hostname: api.example.com
 #     service: http://localhost:8080
-#   - service: http_status:404
+
+tunnels:
+  - name: my-app
+    hostname: app.example.com
+    service: http://localhost:3000
+  - name: my-api
+    hostname: api.example.com
+    service: http://localhost:8080

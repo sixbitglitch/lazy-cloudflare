@@ -1,108 +1,95 @@
 # Cloudflare Tunnels — Server Setup Tools
 
-A set of tools for setting up and managing **Cloudflare Tunnels** on a server using the **`cloudflared`** CLI. Use these scripts to create tunnels, install the connector, and run tunnels as a service so internal services are exposed securely through Cloudflare without opening firewall ports.
+A set of tools for setting up and managing **Cloudflare Tunnels** on a server using the **`cloudflared`** CLI. All scripts are **config-driven**: you maintain a single `config.yml` (see `config.example.yml`) and use it for setup, start, stop, and remove.
 
 ## Prerequisites
 
 - A [Cloudflare](https://cloudflare.com) account.
-- **cloudflared** installed on the server. Install from [Cloudflare’s docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/) or:
+- **Ruby** (stdlib YAML) or **Python 3** with PyYAML — used by the scripts to parse `config.yml`. On the server, **cloudflared** can be installed by the setup script if missing.
+- The hostnames in your config must use zones in the Cloudflare account you log in with.
 
-  ```bash
-  # Linux (deb)
-  curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-  sudo dpkg -i cloudflared.deb
+## Quick start (with these scripts)
 
-  # macOS
-  brew install cloudflared
-  ```
-
-- Your Cloudflare account **Account ID** and (for API use) an **API Token** with permissions for Zone and Tunnel management.
-
-## Quick start (CLI)
-
-1. **Log in** (one-time, creates `~/.cloudflared/cert.pem`):
+1. **Copy and edit the config:**
 
    ```bash
-   cloudflared tunnel login
+   cp config.example.yml config.yml
+   # Edit config.yml: set tunnel name, hostname, and local service URL for each tunnel.
    ```
 
-   Open the URL it prints and authorize the account.
-
-2. **Create a named tunnel**:
+2. **Run setup** (installs cloudflared if needed, logs in via browser link, creates each tunnel, routes DNS, installs systemd services):
 
    ```bash
-   cloudflared tunnel create <TUNNEL_NAME>
+   ./setup_cloudflare_tunnel.sh config.yml
    ```
 
-   Example: `cloudflared tunnel create my-server` → creates tunnel and UUID.
+   When prompted, open the URL in your browser to authorize the account. Each tunnel gets its own UUID and a systemd unit `cloudflared-<name>.service` that auto-starts on boot.
 
-3. **Create a config file** (e.g. `~/.cloudflared/config.yml`):
-
-   ```yaml
-   tunnel: <TUNNEL_UUID>
-   credentials-file: /path/to/.cloudflared/<TUNNEL_UUID>.json
-
-   ingress:
-     - hostname: app.example.com
-       service: http://localhost:3000
-     - hostname: api.example.com
-       service: http://localhost:8080
-     - service: http_status:404
-   ```
-
-4. **Route a hostname** to the tunnel (one per hostname):
+3. **Start / stop / remove** (all read the same config):
 
    ```bash
-   cloudflared tunnel route dns <TUNNEL_NAME> <hostname>
+   ./start_cloudflaretunnel.sh config.yml
+   ./stop_cloudflare_tunnel.sh config.yml
+   ./remove_cloudflare_tunnel.sh config.yml
    ```
 
-   Example: `cloudflared tunnel route dns my-server app.example.com`
+## Config file format
 
-5. **Run the tunnel**:
+`config.yml` has a single top-level key **`tunnels`**: a list of entries, each with:
 
-   ```bash
-   cloudflared tunnel run <TUNNEL_NAME>
-   ```
+| Key         | Description |
+|------------|-------------|
+| `name`     | Tunnel name (used for CLI and for the systemd unit `cloudflared-<name>.service`). |
+| `hostname` | Public hostname in your Cloudflare zone (e.g. `app.example.com`). |
+| `service`  | Local service URL (e.g. `http://localhost:3000`). |
 
-   For production, install and run as a service (see below).
+Example:
 
-## What these tools do
+```yaml
+tunnels:
+  - name: my-app
+    hostname: app.example.com
+    service: http://localhost:3000
+  - name: my-api
+    hostname: api.example.com
+    service: http://localhost:8080
+```
 
-The scripts in this repo automate the above using the CLI:
+## What each script does
 
-| Goal | CLI / approach |
-|------|----------------|
-| **Create tunnel** | `cloudflared tunnel create <name>` |
-| **List tunnels** | `cloudflared tunnel list` |
-| **Route DNS** | `cloudflared tunnel route dns <tunnel> <hostname>` |
-| **Run tunnel** | `cloudflared tunnel run <name>` |
-| **Install as service** | `cloudflared service install` (after config is in place) |
+| Script | Usage | Description |
+|--------|--------|-------------|
+| **setup_cloudflare_tunnel.sh** | `./setup_cloudflare_tunnel.sh config.yml` | 1) Install cloudflared if missing. 2) One-time login via `cloudflared tunnel login`. 3) For each tunnel in config: create tunnel, write per-tunnel config under `~/.cloudflared/`, route DNS. 4) Install and enable one systemd service per tunnel so they auto-start. |
+| **start_cloudflaretunnel.sh** | `./start_cloudflaretunnel.sh config.yml` | Starts all `cloudflared-<name>.service` units listed in the config. |
+| **stop_cloudflare_tunnel.sh** | `./stop_cloudflare_tunnel.sh config.yml` | Stops all tunnel services from the config. |
+| **remove_cloudflare_tunnel.sh** | `./remove_cloudflare_tunnel.sh config.yml` | Stops and disables each tunnel service, deletes each tunnel via CLI, removes per-tunnel config and credentials. DNS CNAMEs are left in Cloudflare (remove in dashboard if desired). |
 
-Config is driven by a YAML file (e.g. `config.yml`) that defines `tunnel`, `credentials-file`, and `ingress` rules.
+All scripts **read the config** to get tunnel names (and for setup: hostname and service). Use the same `config.yml` for setup, start, stop, and remove.
 
 ## Directory layout
 
 ```
 cloudflare-tools/
-├── README.md           # This file
-├── config.example.yml  # Example tunnel ingress config
-└── scripts/            # (Optional) helpers for create, route, install
+├── README.md
+├── config.example.yml   # Example config; copy to config.yml and edit
+├── setup_cloudflare_tunnel.sh
+├── start_cloudflaretunnel.sh
+├── stop_cloudflare_tunnel.sh
+└── remove_cloudflare_tunnel.sh
 ```
 
-- **config.example.yml** — Copy to `~/.cloudflared/config.yml` (or `/etc/cloudflared/config.yml` for system-wide) and set your tunnel ID and ingress.
-- **scripts/** — Wrappers around `cloudflared` for creating tunnels, routing DNS, and installing the service.
+- **config.example.yml** — Copy to `config.yml`, set your tunnel names, hostnames, and local service URLs. Used by all four scripts.
+- Setup writes per-tunnel configs to `~/.cloudflared/config-<name>.yml` and credentials to `~/.cloudflared/<TUNNEL_UUID>.json`. Systemd units are installed under `/etc/systemd/system/cloudflared-<name>.service`.
 
-## Installing the tunnel as a service (Linux)
+## Manual CLI reference
 
-After `config.yml` and credentials are in place (e.g. under `~/.cloudflared/` or `/etc/cloudflared/`):
+If you prefer to run cloudflared by hand:
 
-```bash
-sudo cloudflared service install
-sudo systemctl start cloudflared
-sudo systemctl enable cloudflared
-```
-
-The tools here are intended to prepare the tunnel and config so that this step works without manual editing.
+- **Log in (one-time):** `cloudflared tunnel login`
+- **Create tunnel:** `cloudflared tunnel create <name>`
+- **Route DNS:** `cloudflared tunnel route dns <name> <hostname>`
+- **Run tunnel:** `cloudflared tunnel run <name>` or `cloudflared tunnel --config <path> run`
+- **Install as service:** after config is in place, `sudo cloudflared service install` (single default tunnel). These scripts instead create one systemd unit per tunnel.
 
 ## References
 
